@@ -27,6 +27,7 @@ const adCopy = ref({
   headline: '',
   description: ''
 })
+const landingPageUrl = ref('')
 const uploadedFile = ref<string | null>(null)
 
 interface AdCard {
@@ -282,15 +283,27 @@ function nextStep() {
               <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description (Optional)</label>
               <input v-model="adCopy.description" type="text" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="Additional context..." />
             </div>
+            <div class="space-y-1.5 pt-2 border-t border-border mt-2">
+              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Landing Page URL <span class="normal-case font-normal text-muted-foreground/70">(Recommended)</span></label>
+              <input v-model="landingPageUrl" type="url" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="https://yoursite.com/product-page" />
+              <p class="text-[11px] text-muted-foreground">Meta checks your landing page too. Skipping this may miss destination-level violations.</p>
+            </div>
           </div>
         </div>
 
         <!-- CAROUSEL FORMAT UI -->
         <div v-else class="space-y-8">
           <!-- Global Carousel Copy -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><IconBrandMeta class="text-primary w-4 h-4" /> Global Primary Text</label>
-            <textarea v-model="adCopy.primaryText" rows="2" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="This text appears above the entire carousel..."></textarea>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><IconBrandMeta class="text-primary w-4 h-4" /> Global Primary Text</label>
+              <textarea v-model="adCopy.primaryText" rows="2" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="This text appears above the entire carousel..."></textarea>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Landing Page URL <span class="normal-case font-normal text-muted-foreground/70">(Recommended)</span></label>
+              <input v-model="landingPageUrl" type="url" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="https://yoursite.com/product-page" />
+              <p class="text-[11px] text-muted-foreground">Meta checks your landing page too. Skipping this may miss destination-level violations.</p>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
