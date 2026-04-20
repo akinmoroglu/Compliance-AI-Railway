@@ -138,6 +138,27 @@ function addCarouselCard() {
   }
 }
 
+function resetForm() {
+  currentStep.value = 1
+  adFormat.value = 'single'
+  selectedPlatform.value = 'Meta'
+  selectedRegion.value = 'global'
+  selectedMinAge.value = '25'
+  selectedMaxAge.value = '34'
+  adCopy.value = { primaryText: '', headline: '', description: '' }
+  landingPageUrl.value = ''
+  if (uploadedFile.value) URL.revokeObjectURL(uploadedFile.value)
+  uploadedFile.value = null
+  uploadedFileBlob.value = null
+  carouselCards.value = [{ visual: null, headline: '', description: '' }]
+  activeCardIndex.value = 0
+  checkResult.value = null
+  checkError.value = null
+  timeElapsed.value = 0
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
+  loadingSteps.value.forEach((s, idx) => { s.status = idx === 0 ? 'done' : 'pending' })
+}
+
 async function nextStep() {
   if (currentStep.value === 1) {
     if (!selectedPlatform.value || isAgeRangeInvalid.value) {
@@ -674,7 +695,7 @@ async function nextStep() {
           <p class="text-sm text-muted-foreground mt-1 tracking-tight">Review the issues found within your ad creative and copy.</p>
         </div>
         <button 
-          @click="currentStep = 1" 
+          @click="resetForm"
           class="bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-lg text-sm font-bold border border-border transition-colors flex items-center gap-2"
         >
           Start New Check
