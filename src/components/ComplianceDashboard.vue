@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { 
   IconCheck, 
   IconAlertCircle, 
@@ -11,16 +11,94 @@ import {
   IconLoader2,
   IconUsers
 } from '@tabler/icons-vue'
+import AdvisoryPanel from './AdvisoryPanel.vue'
 
 // Critically Restored State Variables
 const currentStep = ref(1)
 const isChecking = ref(false)
 
+// Progress UI state simulation
+const timeElapsed = ref(0)
+let timerInterval: any = null
+const loadingSteps = ref([
+  { label: 'Initializing compliance scan...', status: 'done' },
+  { label: 'Uploading & Preprocessing media...', status: 'pending' },
+  { label: 'Classifying ad category...', status: 'pending' },
+  { label: 'Evaluating wording and visual creatives...', status: 'pending' },
+  { label: 'Analyzing web claims & alignments...', status: 'pending' },
+  { label: 'Generating fixes and advisory report...', status: 'pending' },
+])
+
+// API result state
+const checkResult = ref<{
+  action: string
+  compliance_score: number
+  risk_category: string
+  category: string
+  category_state: string
+  detected_language: string
+  visual_check_confidence: string
+  lp_analysis_status: string
+  violations: Array<{
+    code: string
+    title: string
+    severity: string
+    explanation: string
+    suggested_fix: string
+    source: string
+  }>
+  alignment_violations: Array<{
+    code: string
+    severity: string
+    explanation: string
+    source_a: string
+    source_b: string
+    claim_in_source_a: string
+    claim_in_source_b: string
+  }>
+  advisories: Array<{
+    code: string
+    message: string
+  }>
+  suggested_copy: string
+} | null>(null)
+const checkError = ref<string | null>(null)
+
+
 const adFormat = ref<'single' | 'carousel'>('single')
-const selectedPlatform = ref<'Meta' | ''>('')
+const selectedPlatform = ref<'Meta' | ''>('Meta')
 const selectedRegion = ref('global')
 const selectedMinAge = ref('25')
 const selectedMaxAge = ref('34')
+
+// UX state
+const showLibraryWarning = ref(false)
+const isShaking = ref(false)
+
+const isAgeRangeInvalid = computed(() => {
+  const min = parseInt(selectedMinAge.value)
+  const max = selectedMaxAge.value === '55+' ? 99 : parseInt(selectedMaxAge.value)
+  return min > max
+})
+
+const parsedDomain = computed(() => {
+  if (!landingPageUrl.value) return ''
+  try {
+    return new URL(landingPageUrl.value).hostname.replace(/^www\./, '').toUpperCase()
+  } catch {
+    return ''
+  }
+})
+
+function triggerLibraryAlert() {
+  showLibraryWarning.value = true
+  setTimeout(() => showLibraryWarning.value = false, 3000)
+}
+
+function shakeButton() {
+  isShaking.value = true
+  setTimeout(() => isShaking.value = false, 500)
+}
 
 const adCopy = ref({
   primaryText: '',
@@ -29,6 +107,7 @@ const adCopy = ref({
 })
 const landingPageUrl = ref('')
 const uploadedFile = ref<string | null>(null)
+const uploadedFileBlob = ref<File | null>(null)
 
 interface AdCard {
   visual: string | null;
@@ -41,7 +120,16 @@ const carouselCards = ref<AdCard[]>([
 const activeCardIndex = ref(0)
 
 function triggerUploadSingle() {
-  uploadedFile.value = 'mock-creative.jpg'
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*,video/*'
+  input.onchange = (e: any) => {
+    if (e.target.files && e.target.files[0]) {
+      uploadedFileBlob.value = e.target.files[0]
+      uploadedFile.value = URL.createObjectURL(e.target.files[0])
+    }
+  }
+  input.click()
 }
 
 function triggerUploadCard(index: number) {
@@ -55,15 +143,93 @@ function addCarouselCard() {
   }
 }
 
-function nextStep() {
+async function nextStep() {
+  if (currentStep.value === 1) {
+    if (!selectedPlatform.value || isAgeRangeInvalid.value) {
+      shakeButton()
+      return
+    }
+    currentStep.value++
+    return
+  }
+
   if (currentStep.value === 2) {
-    // Simulate checking
+    if ((adFormat.value === 'single' && !uploadedFile.value) || (adFormat.value === 'carousel' && !carouselCards.value[0].visual)) {
+      shakeButton()
+      return
+    }
     isChecking.value = true
     currentStep.value = 3
-    setTimeout(() => {
+    checkError.value = null
+    
+    // Reset timer and steps
+    timeElapsed.value = 0
+    loadingSteps.value.forEach((s, idx) => {
+        s.status = idx === 0 ? 'done' : idx === 1 ? 'loading' : 'pending'
+    })
+    
+    timerInterval = setInterval(() => {
+        timeElapsed.value += 1
+        // Simulate progress based on time
+        if (timeElapsed.value === 3) {
+            loadingSteps.value[1].status = 'done'
+            loadingSteps.value[2].status = 'loading'
+        }
+        if (timeElapsed.value === 6) {
+            loadingSteps.value[2].status = 'done'
+            loadingSteps.value[3].status = 'loading'
+        }
+        if (timeElapsed.value === 11) {
+            loadingSteps.value[3].status = 'done'
+            loadingSteps.value[4].status = 'loading'
+        }
+        if (timeElapsed.value === 16) {
+            loadingSteps.value[4].status = 'done'
+            loadingSteps.value[5].status = 'loading'
+        }
+    }, 1000)
+
+    try {
+      const formData = new FormData()
+      formData.append('platform', selectedPlatform.value)
+      formData.append('region', selectedRegion.value)
+      formData.append('age_min', selectedMinAge.value)
+      formData.append('age_max', selectedMaxAge.value)
+      formData.append('ad_format', adFormat.value)
+      formData.append('primary_text', adCopy.value.primaryText)
+      formData.append('headline', adCopy.value.headline)
+      formData.append('description', adCopy.value.description)
+      formData.append('landing_page_url', landingPageUrl.value)
+      
+      if (uploadedFileBlob.value) {
+        if (uploadedFileBlob.value.type.startsWith('video/')) {
+          formData.append('video', uploadedFileBlob.value)
+        } else {
+          formData.append('image', uploadedFileBlob.value)
+        }
+      }
+
+      const response = await fetch('http://localhost:8080/checks', {
+        method: 'POST',
+        // Important: DO NOT set Content-Type header. 
+        // The browser automatically sets multipart/form-data and the boundary.
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('API request failed')
+      }
+
+      checkResult.value = await response.json()
       isChecking.value = false
+      if (timerInterval) clearInterval(timerInterval)
       currentStep.value = 4
-    }, 2500)
+    } catch (err) {
+      isChecking.value = false
+      if (timerInterval) clearInterval(timerInterval)
+      checkError.value = 'Analysis failed. Please check the backend is running and try again.'
+      currentStep.value = 2
+    }
   } else {
     currentStep.value++
   }
@@ -100,8 +266,8 @@ function nextStep() {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Meta (Active/Selectable) -->
           <label 
-            class="border-2 rounded-xl p-6 transition-colors flex flex-col items-center justify-center text-center gap-3 relative cursor-pointer w-full focus-within:ring-4 focus-within:ring-primary/20"
-            :class="selectedPlatform === 'Meta' ? 'border-primary bg-primary/5 hover:bg-primary/10 shadow-sm' : 'border-border bg-card hover:bg-muted/30 shadow-sm'"
+            class="border-2 rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center gap-3 relative cursor-pointer w-full focus-within:ring-4 focus-within:ring-primary/20 hover:shadow-md active:scale-[0.98]"
+            :class="selectedPlatform === 'Meta' ? 'border-primary bg-primary/5 hover:bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/30 hover:bg-muted/30 shadow-sm'"
           >
             <input type="radio" value="Meta" v-model="selectedPlatform" class="absolute opacity-0 w-0 h-0" />
             <div v-if="selectedPlatform === 'Meta'" class="absolute top-3 right-3 text-primary animate-in zoom-in">
@@ -173,11 +339,21 @@ function nextStep() {
                  <IconChevronDown :size="16" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                </div>
              </div>
-           </div>
+              </div>
+          </div>
+
+        <div v-if="isAgeRangeInvalid" class="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <IconAlertCircle class="text-destructive" :size="16" />
+          <span class="text-xs font-bold text-destructive">Invalid age range: Minimum age cannot be greater than maximum age.</span>
         </div>
 
         <div class="mt-6 flex justify-end">
-          <button @click="nextStep" :disabled="!selectedPlatform" class="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed">
+          <button 
+            @click="nextStep" 
+            :disabled="!selectedPlatform" 
+            class="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="{ 'animate-shake bg-destructive': isShaking }"
+          >
             Next Step
           </button>
         </div>
@@ -251,13 +427,25 @@ function nextStep() {
                 </div>
                 <p class="font-bold text-foreground">Upload your image or video</p>
                 <p class="text-sm text-muted-foreground mt-1">Click here or drag & drop</p>
-                <button class="mt-6 bg-secondary text-secondary-foreground px-5 py-2.5 rounded-lg text-sm font-bold">Image Library</button>
+                
+                <div class="relative mt-6">
+                  <button 
+                    @click.stop="triggerLibraryAlert" 
+                    type="button" 
+                    class="bg-secondary text-secondary-foreground px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
+                  >
+                    Image Library
+                  </button>
+                  <div v-if="showLibraryWarning" class="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-foreground text-background text-[10px] py-1 px-2 rounded shadow-lg animate-in fade-in zoom-in">
+                    Gallery Coming Soon
+                  </div>
+                </div>
               </template>
               <template v-else>
                 <div class="w-full h-full flex flex-col items-center justify-center space-y-4">
                   <div class="w-56 h-56 bg-primary/20 rounded-xl flex items-center justify-center border-2 border-primary/30 text-primary font-bold shadow-inner relative overflow-hidden">
-                    <img src="https://via.placeholder.com/300x500/1a1a2e/e94560?text=Mock+Ad" class="object-cover w-full h-full opacity-80" />
-                    <div class="absolute inset-0 flex items-center justify-center bg-black/40"><span class="bg-background px-3 py-1 rounded text-xs">mock-creative.jpg</span></div>
+                    <img :src="uploadedFile || 'https://via.placeholder.com/300x500/1a1a2e/e94560?text=Mock+Ad'" class="object-cover w-full h-full opacity-80" />
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/40"><span class="bg-background px-3 py-1 rounded text-xs truncate max-w-[80%]">{{ uploadedFileBlob?.name || 'mock-creative.jpg' }}</span></div>
                   </div>
                   <span class="text-sm font-bold text-primary cursor-pointer hover:underline">Change File</span>
                 </div>
@@ -380,8 +568,13 @@ function nextStep() {
         </div>
 
         <div class="mt-8 flex justify-end pt-6 border-t border-border">
-          <button @click="nextStep" :disabled="(adFormat === 'single' ? !uploadedFile : !carouselCards[0].visual)" class="bg-[#ed3875] text-white px-8 py-3 rounded-lg font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-            Check Compliance &gt;
+          <button 
+            @click="nextStep" 
+            :disabled="(adFormat === 'single' ? !uploadedFile : !carouselCards[0].visual)" 
+            class="bg-[#ed3875] text-white px-8 py-3 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            :class="{ 'animate-shake bg-destructive': isShaking }"
+          >
+            Check Compliance >
           </button>
         </div>
       </div>
@@ -391,102 +584,179 @@ function nextStep() {
     <div v-if="currentStep === 3" class="border border-border rounded-xl bg-card p-12 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95">
        <IconLoader2 class="animate-spin text-primary mb-6" :size="48" />
        <h2 class="text-xl font-bold text-primary mb-2">AI is analyzing your ad...</h2>
-       <p class="text-muted-foreground">Checking Meta policies for health claims, sensationalism, and visual compliance.</p>
+       <p class="text-muted-foreground tabular-nums">Elapsed Time: <span class="font-bold text-foreground">{{ timeElapsed }}s</span></p>
        
        <div class="mt-8 space-y-3 w-full max-w-md">
-         <div class="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
-           <span class="text-sm font-medium">Analyzing wording & copy</span>
-           <IconCheck class="text-primary" :size="16" />
-         </div>
-         <div class="bg-muted/50 border border-border rounded-lg p-3 flex items-center justify-between opacity-70">
-           <span class="text-sm font-medium">Scanning visual elements</span>
-           <IconLoader2 class="text-muted-foreground animate-spin" :size="16" />
+         <div v-for="(step, index) in loadingSteps" :key="index"
+              class="bg-card border border-border p-3 rounded-lg flex items-center justify-between shadow-sm transition-all duration-300"
+              :class="{ 'opacity-50': step.status === 'pending' }">
+           <span class="text-sm text-foreground" :class="{'font-bold text-primary': step.status === 'loading'}">{{ step.label }}</span>
+           <IconCheck v-if="step.status === 'done'" class="text-green-600" :size="16" />
+           <IconLoader2 v-else-if="step.status === 'loading'" class="text-primary animate-spin" :size="16" />
+           <div v-else class="w-4 h-4 rounded-full border-2 border-muted" />
          </div>
        </div>
     </div>
 
     <!-- STEP 4: Results Dashboard -->
     <div v-if="currentStep === 4" class="animate-in fade-in slide-in-from-bottom-4">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-8 pb-4 border-b border-border">
         <div>
           <h2 class="text-2xl font-bold text-foreground">Compliance Report</h2>
-          <p class="text-muted-foreground mt-1">Review the issues found within your ad creative and copy.</p>
+          <p class="text-sm text-muted-foreground mt-1 tracking-tight">Review the issues found within your ad creative and copy.</p>
         </div>
-        <button @click="currentStep = 1" class="text-sm font-medium text-primary hover:underline">Start New Check</button>
+        <button 
+          @click="currentStep = 1" 
+          class="bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-lg text-sm font-bold border border-border transition-colors flex items-center gap-2"
+        >
+          Start New Check
+        </button>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         
         <!-- Left: Context/Preview (2 cols) -->
-        <div class="col-span-2 space-y-4">
-          <div class="border border-border rounded-xl bg-card p-4">
+        <div class="col-span-2">
+          <div class="sticky top-8 space-y-4">
+            <div class="border border-border rounded-xl bg-card p-4 shadow-sm relative overflow-hidden">
+              <div class="absolute top-0 left-0 w-1 h-full bg-primary/20"></div>
             <!-- Simulated Facebook Ad Card -->
             <div class="flex items-center gap-2 mb-3">
               <div class="w-8 h-8 rounded-full bg-muted"></div>
               <div>
-                <div class="text-xs font-bold text-foreground">Your Brand Name</div>
                 <div class="text-[10px] text-muted-foreground">Sponsored</div>
               </div>
             </div>
-            <p class="text-sm text-foreground mb-3">{{ adCopy.primaryText || 'Lose 20kg in 30 days - GUARANTEED!' }}</p>
-            <div class="w-full aspect-square bg-primary/10 rounded overflow-hidden flex items-center justify-center text-primary font-bold shadow-inner">
-              [Uploaded Image Preview]
+            <p v-if="adCopy.primaryText" class="text-sm text-foreground mb-3">{{ adCopy.primaryText }}</p>
+            <div class="w-full max-h-64 aspect-video bg-muted/30 rounded overflow-hidden flex items-center justify-center shadow-inner border border-border">
+              <img v-if="uploadedFile" :src="uploadedFile" class="w-full h-full object-cover" />
+              <span v-else class="text-xs text-muted-foreground font-medium">No image uploaded</span>
             </div>
-            <div class="bg-muted/30 p-3 mt-2 border border-border flex justify-between items-center">
-              <div>
-                <p class="text-xs text-muted-foreground uppercase">EXAMPLE.COM</p>
-                <p class="text-sm font-bold">{{ adCopy.headline || '100% Natural Solution' }}</p>
-                <p class="text-xs text-muted-foreground truncate w-48">{{ adCopy.description || 'No exercise or diet needed.' }}</p>
+            <div class="bg-muted/30 p-3 mt-2 border border-border flex justify-between items-center gap-2">
+              <div class="min-w-0">
+                <p v-if="parsedDomain" class="text-xs text-muted-foreground uppercase truncate">{{ parsedDomain }}</p>
+                <p v-if="adCopy.headline" class="text-sm font-bold truncate">{{ adCopy.headline }}</p>
+                <p v-if="adCopy.description" class="text-xs text-muted-foreground truncate">{{ adCopy.description }}</p>
               </div>
-               <button class="bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded">Learn More</button>
+               <button class="bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded shrink-0">Learn More</button>
             </div>
           </div>
+        </div>
         </div>
 
         <!-- Right: Results Checklist (3 cols) -->
         <div class="col-span-3 space-y-4">
-          
-          <div class="border border-border rounded-xl bg-card overflow-hidden">
-             <div class="bg-destructive/10 border-b border-destructive/20 p-4 flex items-center justify-between">
-                <div class="flex items-center gap-2 text-destructive font-bold">
-                  <IconAlertCircle :size="20" /> 
-                  Meta Compliance Issues
-                </div>
-                <div class="bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded-full">Failed: High Risk</div>
-             </div>
-             
-             <div class="p-6 space-y-6">
-                <!-- Issue 1 -->
-                <div>
-                  <div class="flex items-start gap-2">
-                    <IconAlertCircle class="text-destructive mt-0.5" :size="16" />
-                    <div>
-                      <h4 class="font-bold text-sm text-foreground">Misleading Health Claims (Copy)</h4>
-                      <p class="text-sm text-muted-foreground mt-1">
-                        The primary text uses extreme weight loss claims ("Lose 20kg in 30 days - GUARANTEED!"). Meta severely restricts promises of guaranteed physical results without robust scientific backings or disclaimers.
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
-                <!-- Issue 2 -->
-                <div>
-                  <div class="flex items-start gap-2">
-                    <IconAlertCircle class="text-destructive mt-0.5" :size="16" />
-                    <div>
-                      <h4 class="font-bold text-sm text-foreground">Unrealistic Body Standards (Visual)</h4>
-                      <p class="text-sm text-muted-foreground mt-1">
-                        The uploaded image appears to show a "before and after" scenario. Meta prohibits before-and-after images that promote sudden weight loss or invoke negative self-perception.
-                      </p>
-                    </div>
-                  </div>
+          <!-- Score Summary Card -->
+          <div class="border border-border rounded-xl bg-card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <div class="text-3xl font-bold" :class="checkResult?.compliance_score === 0 ? 'text-destructive' : checkResult?.compliance_score >= 70 ? 'text-green-600' : 'text-amber-500'">
+                  {{ checkResult?.compliance_score ?? 0 }}<span class="text-lg font-normal text-muted-foreground">/100</span>
                 </div>
-             </div>
+                <div class="text-sm font-semibold mt-1" :class="checkResult?.risk_category === 'High Risk' ? 'text-destructive' : checkResult?.risk_category === 'Medium Risk' ? 'text-amber-500' : 'text-green-600'">
+                  {{ checkResult?.risk_category }}
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-muted-foreground">Category</div>
+                <div class="text-sm font-semibold">{{ checkResult?.category }}</div>
+                <div class="text-xs mt-1 px-2 py-0.5 rounded-full inline-block"
+                  :class="checkResult?.action === 'PROHIBITED' ? 'bg-destructive/10 text-destructive' : checkResult?.action === 'AUTHORIZATION_REQUIRED' ? 'bg-orange-100 text-orange-700' : checkResult?.action === 'RESTRICTED' ? 'bg-amber-100 text-amber-700' : checkResult?.action === 'ALLOWED_WITH_RESTRICTIONS' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'">
+                  {{ checkResult?.action }}
+                </div>
+              </div>
+            </div>
+            <!-- Score bar -->
+            <div class="w-full bg-muted rounded-full h-2">
+              <div class="h-2 rounded-full transition-all duration-500"
+                :class="checkResult?.compliance_score === 0 ? 'bg-destructive' : checkResult?.compliance_score >= 70 ? 'bg-green-500' : 'bg-amber-400'"
+                :style="`width: ${checkResult?.compliance_score ?? 0}%`">
+              </div>
+            </div>
+          </div>
+
+          <AdvisoryPanel v-if="checkResult?.advisories" :advisories="checkResult.advisories" />
+
+          <div v-if="checkResult?.suggested_copy" class="border border-green-200 rounded-xl bg-green-50 p-5">
+            <h3 class="font-bold text-green-800 text-sm mb-2">Suggested Compliant Copy</h3>
+            <p class="text-sm text-green-900 bg-white/50 p-3 rounded-lg border border-green-100 whitespace-pre-line">{{ checkResult.suggested_copy }}</p>
           </div>
           
-          <div class="bg-muted p-4 rounded-xl border border-border flex items-start gap-3">
-            <IconCheck class="text-muted-foreground shrink-0 mt-0.5" />
-            <p class="text-sm text-muted-foreground">No trademark infringements or prohibited profanity detected in the ad copy or visual text overlay.</p>
+          <!-- Alignment Violations List -->
+          <div v-if="checkResult?.alignment_violations && checkResult.alignment_violations.length > 0"
+               class="border border-amber-200 rounded-xl bg-card overflow-hidden">
+            <div class="bg-amber-50 border-b border-amber-200 p-4 flex items-center gap-2">
+              <IconAlertCircle :size="18" class="text-amber-600 shrink-0" />
+              <span class="font-bold text-amber-800 text-sm">Cross-Source Contradictions (Alignment)</span>
+            </div>
+            <div class="p-6 space-y-6">
+              <div v-for="violation in checkResult.alignment_violations" :key="'align'+violation.code">
+                <div class="flex items-start gap-2">
+                  <div class="flex-1">
+                    <h4 class="font-bold text-sm text-foreground mb-1">{{ violation.explanation }}</h4>
+                    <div class="grid grid-cols-2 gap-4 mt-3">
+                      <div class="bg-muted p-3 rounded border border-border">
+                        <span class="text-[10px] uppercase font-bold text-muted-foreground block mb-1">In {{ violation.source_a }}</span>
+                        <p class="text-xs text-foreground">{{ violation.claim_in_source_a }}</p>
+                      </div>
+                      <div class="bg-muted p-3 rounded border border-border">
+                        <span class="text-[10px] uppercase font-bold text-muted-foreground block mb-1">In {{ violation.source_b }}</span>
+                        <p class="text-xs text-foreground">{{ violation.claim_in_source_b }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Violations List -->
+          <div v-if="checkResult?.violations && checkResult.violations.length > 0"
+               class="border border-border rounded-xl bg-card overflow-hidden">
+            <div class="bg-destructive/10 border-b border-destructive/20 p-4 flex items-center justify-between">
+              <div class="flex items-center gap-2 text-destructive font-bold">
+                <IconAlertCircle :size="20" />
+                {{ checkResult.violations.length }} Issue{{ checkResult.violations.length > 1 ? 's' : '' }} Found
+              </div>
+              <div class="bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded-full">
+                {{ checkResult.risk_category }}
+              </div>
+            </div>
+            <div class="p-6 space-y-6">
+              <div v-for="violation in checkResult.violations" :key="violation.code">
+                <div class="flex items-start gap-2">
+                  <IconAlertCircle class="text-destructive mt-0.5 shrink-0" :size="16" />
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <h4 class="font-bold text-sm text-foreground">{{ violation.title }}</h4>
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        :class="violation.severity === 'PROHIBITED' ? 'bg-destructive/10 text-destructive' : violation.severity === 'AUTHORIZATION_REQUIRED' ? 'bg-orange-100 text-orange-700' : violation.severity === 'RESTRICTED' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'">
+                        {{ violation.severity }}
+                      </span>
+                    </div>
+                    <p class="text-sm text-muted-foreground">{{ violation.explanation }}</p>
+                    
+                    <!-- Source Badge -->
+                    <div class="mt-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                      <IconAlertCircle :size="12" /> Found in: 
+                      <span class="bg-muted px-1.5 py-0.5 rounded">{{ violation.source }}</span>
+                    </div>
+
+                    <div v-if="violation.suggested_fix" class="mt-2 bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p class="text-xs font-bold text-green-700 mb-1">Suggested Fix</p>
+                      <p class="text-sm text-green-800">{{ violation.suggested_fix }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- No violations -->
+          <div v-else class="bg-green-50 border border-green-200 p-4 rounded-xl flex items-start gap-3">
+            <IconCheck class="text-green-600 shrink-0 mt-0.5" />
+            <p class="text-sm text-green-800 font-medium">No policy violations detected. This ad appears compliant with Meta's advertising standards.</p>
           </div>
 
         </div>
@@ -495,3 +765,25 @@ function nextStep() {
 
   </div>
 </template>
+
+<style scoped>
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.2s ease-in-out 0s 2;
+}
+
+/* Ensure sticky preview doesn't overflow container on very short viewports */
+.sticky {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sticky::-webkit-scrollbar {
+  display: none;
+}
+</style>
