@@ -13,9 +13,9 @@ import {
 } from '@tabler/icons-vue'
 import AdvisoryPanel from './AdvisoryPanel.vue'
 
-// Critically Restored State Variables
 const currentStep = ref(1)
 const isChecking = ref(false)
+const isSubmitting = ref(false)
 
 // Progress UI state simulation
 const timeElapsed = ref(0)
@@ -106,17 +106,12 @@ const adCopy = ref({
   description: ''
 })
 const landingPageUrl = ref('')
+const urlError = ref('')
 const uploadedFile = ref<string | null>(null)
 const uploadedFileBlob = ref<File | null>(null)
 
-interface AdCard {
-  visual: string | null;
-  headline: string;
-  description: string;
-}
-const carouselCards = ref<AdCard[]>([
-  { visual: null, headline: '', description: '' }
-])
+interface AdCard { visual: string | null; headline: string; description: string }
+const carouselCards = ref<AdCard[]>([{ visual: null, headline: '', description: '' }])
 const activeCardIndex = ref(0)
 
 function triggerUploadSingle() {
@@ -238,25 +233,27 @@ async function nextStep() {
 
 <template>
   <div class="space-y-4">
+
     <!-- STEP 1: Platform Selection -->
     <div class="border border-border rounded-xl bg-card overflow-hidden">
-      <!-- Accordion Header -->
-      <button 
+      <button
         type="button"
+        :aria-expanded="currentStep === 1"
+        aria-controls="step1-panel"
         @click="currentStep = 1"
-        class="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors select-none text-left"
+        class="w-full flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-muted/30 transition-colors select-none text-left"
       >
-        <div class="flex items-center gap-4">
-          <div class="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm">
+        <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div class="h-8 w-8 shrink-0 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm">
             1
           </div>
-          <div>
-            <h2 class="text-lg font-semibold cursor-pointer">Select Platform</h2>
-            <p class="text-sm text-muted-foreground">Choose the platform you want to verify compliance for.</p>
+          <div class="min-w-0">
+            <h2 class="text-base sm:text-lg font-semibold">Select Platform</h2>
+            <p class="text-xs sm:text-sm text-muted-foreground hidden sm:block">Choose the platform you want to verify compliance for.</p>
           </div>
         </div>
-        <IconChevronDown 
-          class="text-muted-foreground transition-transform duration-300"
+        <IconChevronDown
+          class="text-muted-foreground transition-transform duration-300 shrink-0 ml-2"
           :class="{ 'rotate-180': currentStep === 1 }"
         />
       </button>
@@ -280,21 +277,27 @@ async function nextStep() {
             </div>
           </label>
 
-          <!-- Google (Disabled) -->
-          <div class="border border-border rounded-xl p-6 bg-muted/20 opacity-50 cursor-not-allowed flex flex-col items-center text-center gap-3 relative">
+          <!-- Google (Coming Soon) -->
+          <div
+            class="border border-border rounded-xl p-5 sm:p-6 bg-muted/20 opacity-50 cursor-not-allowed flex flex-col items-center text-center gap-3 relative"
+            title="Google Ads support coming in Q3 2026"
+          >
             <IconBrandGoogle :size="48" class="text-muted-foreground" />
             <div>
               <h3 class="font-bold text-muted-foreground">Google Ads</h3>
-              <p class="text-xs text-muted-foreground mt-1">Coming Soon.</p>
+              <p class="text-xs text-muted-foreground mt-1">Coming Soon — Q3 2026</p>
             </div>
           </div>
 
-          <!-- TikTok (Disabled) -->
-          <div class="border border-border rounded-xl p-6 bg-muted/20 opacity-50 cursor-not-allowed flex flex-col items-center text-center gap-3 relative">
+          <!-- TikTok (Coming Soon) -->
+          <div
+            class="border border-border rounded-xl p-5 sm:p-6 bg-muted/20 opacity-50 cursor-not-allowed flex flex-col items-center text-center gap-3 relative"
+            title="TikTok support coming in Q3 2026"
+          >
             <IconBrandTiktok :size="48" class="text-muted-foreground" />
             <div>
               <h3 class="font-bold text-muted-foreground">TikTok</h3>
-              <p class="text-xs text-muted-foreground mt-1">Coming Soon.</p>
+              <p class="text-xs text-muted-foreground mt-1">Coming Soon — Q3 2026</p>
             </div>
           </div>
         </div>
@@ -362,64 +365,87 @@ async function nextStep() {
 
     <!-- STEP 2: Creative & Ad Copy -->
     <div class="border border-border rounded-xl bg-card overflow-hidden">
-      <!-- Accordion Header -->
-      <div 
+      <button
+        type="button"
+        :aria-expanded="currentStep === 2"
+        aria-controls="step2-panel"
         @click="currentStep = 2"
-        class="flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors"
+        class="w-full flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-muted/30 transition-colors text-left"
       >
-        <div class="flex items-center gap-4">
-          <div 
-            class="h-8 w-8 rounded-lg flex items-center justify-center font-semibold text-sm transition-colors"
+        <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div
+            class="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center font-semibold text-sm transition-colors"
             :class="currentStep >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
           >
             2
           </div>
-          <div>
-            <h2 class="text-lg font-semibold" :class="currentStep < 2 && 'text-muted-foreground'">Ad Creative & Copy</h2>
-            <p class="text-sm text-muted-foreground">Upload visual and provide the exact ad text for full compliance check.</p>
+          <div class="min-w-0">
+            <h2 class="text-base sm:text-lg font-semibold" :class="currentStep < 2 && 'text-muted-foreground'">Ad Creative & Copy</h2>
+            <p class="text-xs sm:text-sm text-muted-foreground hidden sm:block">Upload visual and provide the exact ad text for full compliance check.</p>
           </div>
         </div>
-        <IconChevronDown 
-          class="text-muted-foreground transition-transform duration-300"
+        <IconChevronDown
+          class="text-muted-foreground transition-transform duration-300 shrink-0 ml-2"
           :class="{ 'rotate-180': currentStep === 2 }"
         />
-      </div>
+      </button>
 
-      <!-- Accordion Body -->
-      <div v-if="currentStep === 2" class="px-6 pb-6 pt-2 border-t border-border animate-in fade-in slide-in-from-top-4">
-        
+      <div
+        v-if="currentStep === 2"
+        id="step2-panel"
+        role="region"
+        class="px-4 sm:px-6 pb-6 pt-2 border-t border-border animate-in fade-in slide-in-from-top-4"
+      >
         <!-- Ad Format Selector -->
-        <div class="flex items-center justify-between mb-8 pb-4 border-b border-border">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-border">
           <div>
             <h3 class="font-bold text-lg text-foreground">Ad Format & Creative</h3>
             <p class="text-sm text-muted-foreground mt-1">Select your ad format and configure the visuals and copy.</p>
           </div>
-          <div class="flex bg-muted/30 p-1 rounded-xl border border-border">
-            <button 
-              @click="adFormat = 'single'" 
-              :class="{'bg-card text-foreground shadow-sm ring-1 ring-border': adFormat === 'single', 'text-muted-foreground hover:text-foreground': adFormat !== 'single'}" 
-              class="px-5 py-2 rounded-lg text-sm font-bold transition-all"
+          <div class="flex bg-muted/30 p-1 rounded-xl border border-border shrink-0">
+            <button
+              type="button"
+              @click="adFormat = 'single'"
+              :class="{'bg-card text-foreground shadow-sm ring-1 ring-border': adFormat === 'single', 'text-muted-foreground hover:text-foreground': adFormat !== 'single'}"
+              class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
             >
               Single Image or Video
             </button>
-            <button 
-              @click="adFormat = 'carousel'" 
-              :class="{'bg-card text-foreground shadow-sm ring-1 ring-border': adFormat === 'carousel', 'text-muted-foreground hover:text-foreground': adFormat !== 'carousel'}" 
-              class="px-5 py-2 rounded-lg text-sm font-bold transition-all"
+            <button
+              type="button"
+              @click="adFormat = 'carousel'"
+              :class="{'bg-card text-foreground shadow-sm ring-1 ring-border': adFormat === 'carousel', 'text-muted-foreground hover:text-foreground': adFormat !== 'carousel'}"
+              class="px-4 py-2 rounded-lg text-sm font-bold transition-all"
             >
-              Carousel Format
+              Carousel
             </button>
           </div>
         </div>
 
         <!-- SINGLE IMAGE FORMAT UI -->
-        <div v-if="adFormat === 'single'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div v-if="adFormat === 'single'" class="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           <div class="space-y-3">
             <h3 class="font-bold text-sm text-foreground">Visual Creative</h3>
-            <div 
-              @click="triggerUploadSingle"
-              class="border-2 border-dashed border-border rounded-xl p-8 hover:bg-muted/50 transition-colors cursor-pointer flex flex-col items-center justify-center text-center group min-h-[350px]"
-              :class="{ 'bg-muted/30 border-primary/50': uploadedFile }"
+
+            <!-- Hidden real file input -->
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*,video/*"
+              class="hidden"
+              aria-label="Upload creative file"
+              @change="handleFileUpload"
+            />
+
+            <div
+              @click="fileInputRef?.click()"
+              class="border-2 border-dashed border-border rounded-xl p-8 hover:bg-muted/50 transition-colors cursor-pointer flex flex-col items-center justify-center text-center group"
+              :class="uploadedFile ? 'bg-muted/30 border-primary/50 min-h-[200px]' : 'min-h-[280px]'"
+              role="button"
+              tabindex="0"
+              aria-label="Click to upload image or video"
+              @keydown.enter="fileInputRef?.click()"
+              @keydown.space.prevent="fileInputRef?.click()"
             >
               <template v-if="!uploadedFile">
                 <div class="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
@@ -447,122 +473,175 @@ async function nextStep() {
                     <img :src="uploadedFile || 'https://via.placeholder.com/300x500/1a1a2e/e94560?text=Mock+Ad'" class="object-cover w-full h-full opacity-80" />
                     <div class="absolute inset-0 flex items-center justify-center bg-black/40"><span class="bg-background px-3 py-1 rounded text-xs truncate max-w-[80%]">{{ uploadedFileBlob?.name || 'mock-creative.jpg' }}</span></div>
                   </div>
+                  <span class="text-xs text-muted-foreground">{{ uploadedFileName }}</span>
                   <span class="text-sm font-bold text-primary cursor-pointer hover:underline">Change File</span>
                 </div>
               </template>
             </div>
           </div>
 
-          <div class="space-y-4 bg-muted/20 p-6 border border-border rounded-xl shadow-sm">
+          <div class="space-y-4 bg-muted/20 p-5 sm:p-6 border border-border rounded-xl shadow-sm">
             <div class="border-b border-border pb-3 mb-2 flex items-center gap-2">
               <IconBrandMeta class="text-primary" />
               <h3 class="font-bold text-foreground">Meta Ad Copy</h3>
             </div>
-            
+
             <div class="space-y-1.5">
-              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Primary Text</label>
-              <textarea v-model="adCopy.primaryText" rows="4" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="Appears above your ad..."></textarea>
+              <label for="primary-text" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Primary Text</label>
+              <textarea
+                id="primary-text"
+                v-model="adCopy.primaryText"
+                rows="4"
+                class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                placeholder="Appears above your ad..."
+              ></textarea>
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Headline</label>
-              <input v-model="adCopy.headline" type="text" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="Usually appears below the image..." />
+              <label for="headline" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Headline</label>
+              <input
+                id="headline"
+                v-model="adCopy.headline"
+                type="text"
+                class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                placeholder="Usually appears below the image..."
+              />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description (Optional)</label>
-              <input v-model="adCopy.description" type="text" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="Additional context..." />
+              <label for="description" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description <span class="normal-case font-normal text-muted-foreground/70">(Optional)</span></label>
+              <input
+                id="description"
+                v-model="adCopy.description"
+                type="text"
+                class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                placeholder="Additional context..."
+              />
             </div>
             <div class="space-y-1.5 pt-2 border-t border-border mt-2">
-              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Landing Page URL <span class="normal-case font-normal text-muted-foreground/70">(Recommended)</span></label>
-              <input v-model="landingPageUrl" type="url" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="https://yoursite.com/product-page" />
-              <p class="text-[11px] text-muted-foreground">Meta checks your landing page too. Skipping this may miss destination-level violations.</p>
+              <label for="landing-url" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Landing Page URL <span class="normal-case font-normal text-muted-foreground/70">(Recommended)</span>
+              </label>
+              <input
+                id="landing-url"
+                v-model="landingPageUrl"
+                type="url"
+                class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                :class="urlError ? 'border-destructive focus:ring-destructive' : ''"
+                placeholder="https://yoursite.com/product-page"
+                @blur="validateUrl"
+              />
+              <p v-if="urlError" class="text-xs text-destructive font-medium">{{ urlError }}</p>
+              <p v-else class="text-[11px] text-muted-foreground">Meta checks your landing page too. Skipping this may miss destination-level violations.</p>
             </div>
           </div>
         </div>
 
         <!-- CAROUSEL FORMAT UI -->
         <div v-else class="space-y-8">
-          <!-- Global Carousel Copy -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><IconBrandMeta class="text-primary w-4 h-4" /> Global Primary Text</label>
-              <textarea v-model="adCopy.primaryText" rows="2" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="This text appears above the entire carousel..."></textarea>
+              <label for="carousel-primary-text" class="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <IconBrandMeta class="text-primary w-4 h-4" /> Global Primary Text
+              </label>
+              <textarea
+                id="carousel-primary-text"
+                v-model="adCopy.primaryText"
+                rows="2"
+                class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                placeholder="This text appears above the entire carousel..."
+              ></textarea>
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Landing Page URL <span class="normal-case font-normal text-muted-foreground/70">(Recommended)</span></label>
-              <input v-model="landingPageUrl" type="url" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="https://yoursite.com/product-page" />
-              <p class="text-[11px] text-muted-foreground">Meta checks your landing page too. Skipping this may miss destination-level violations.</p>
+              <label for="carousel-landing-url" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Landing Page URL <span class="normal-case font-normal text-muted-foreground/70">(Recommended)</span>
+              </label>
+              <input
+                id="carousel-landing-url"
+                v-model="landingPageUrl"
+                type="url"
+                class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                :class="urlError ? 'border-destructive focus:ring-destructive' : ''"
+                placeholder="https://yoursite.com/product-page"
+                @blur="validateUrl"
+              />
+              <p v-if="urlError" class="text-xs text-destructive font-medium">{{ urlError }}</p>
+              <p v-else class="text-[11px] text-muted-foreground">Meta checks your landing page too. Skipping this may miss destination-level violations.</p>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Carousel Cards Scroller (Left 2 cols) -->
-            <div class="lg:col-span-2 border border-border rounded-xl bg-muted/10 p-6 overflow-hidden flex flex-col">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div class="lg:col-span-2 border border-border rounded-xl bg-muted/10 p-5 overflow-hidden flex flex-col">
               <h3 class="font-bold text-sm text-foreground mb-4">Carousel Cards ({{ carouselCards.length }}/10)</h3>
               <div class="flex gap-4 overflow-x-auto pb-4 flex-1 items-center">
-                 
-                 <!-- Render actual cards -->
-                 <div 
-                   v-for="(card, idx) in carouselCards" 
-                   :key="idx"
-                   @click="activeCardIndex = idx"
-                   class="shrink-0 w-44 h-60 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center relative bg-card overflow-hidden group"
-                   :class="activeCardIndex === idx ? 'border-primary shadow-md scale-105' : 'border-dashed border-border hover:border-solid hover:border-primary/50'"
-                 >
-                    <!-- Active Indicator -->
-                    <div v-if="activeCardIndex === idx" class="absolute top-2 right-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full z-10">Editing</div>
-                    
-                    <template v-if="!card.visual">
-                       <IconUpload class="text-muted-foreground group-hover:text-primary transition-colors mb-2" />
-                       <span class="text-xs font-bold text-muted-foreground">Click to upload</span>
-                       <span class="text-[10px] text-muted-foreground/70 mt-1">Card {{ idx + 1 }}</span>
-                    </template>
-                    <template v-else>
-                       <img :src="card.visual" class="w-full h-full object-cover opacity-90" />
-                       <div class="absolute bottom-0 w-full bg-background/90 backdrop-blur border-t border-border p-2">
-                         <div class="text-[10px] font-bold truncate">{{ card.headline || 'Headline' }}</div>
-                       </div>
-                    </template>
-                 </div>
+                <div
+                  v-for="(card, idx) in carouselCards"
+                  :key="idx"
+                  @click="activeCardIndex = idx"
+                  class="shrink-0 w-44 h-60 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center relative bg-card overflow-hidden group"
+                  :class="activeCardIndex === idx ? 'border-primary shadow-md scale-105' : 'border-dashed border-border hover:border-solid hover:border-primary/50'"
+                >
+                  <div v-if="activeCardIndex === idx" class="absolute top-2 right-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full z-10">Editing</div>
+                  <template v-if="!card.visual">
+                    <IconUpload class="text-muted-foreground group-hover:text-primary transition-colors mb-2" />
+                    <span class="text-xs font-bold text-muted-foreground">Click to upload</span>
+                    <span class="text-[10px] text-muted-foreground/70 mt-1">Card {{ idx + 1 }}</span>
+                  </template>
+                  <template v-else>
+                    <img :src="card.visual" class="w-full h-full object-cover opacity-90" :alt="`Card ${idx + 1}`" />
+                    <div class="absolute bottom-0 w-full bg-background/90 backdrop-blur border-t border-border p-2">
+                      <div class="text-[10px] font-bold truncate">{{ card.headline || 'Headline' }}</div>
+                    </div>
+                  </template>
+                </div>
 
-                 <!-- Add Card Button -->
-                 <div 
-                   v-if="carouselCards.length < 10"
-                   @click="addCarouselCard"
-                   class="shrink-0 w-16 h-60 border-2 border-dashed border-border rounded-xl hover:bg-muted/50 transition-colors cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground"
-                 >
-                   <span class="text-2xl font-light">+</span>
-                 </div>
+                <div
+                  v-if="carouselCards.length < 10"
+                  @click="addCarouselCard"
+                  class="shrink-0 w-16 h-60 border-2 border-dashed border-border rounded-xl hover:bg-muted/50 transition-colors cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground"
+                  role="button"
+                  aria-label="Add carousel card"
+                >
+                  <span class="text-2xl font-light">+</span>
+                </div>
               </div>
             </div>
 
-            <!-- Active Card Editor (Right 1 col) -->
-            <div class="space-y-4 bg-muted/20 p-6 border border-border rounded-xl shadow-sm h-fit relative">
-               <!-- Editor Header -->
-               <div class="border-b border-border pb-3 mb-2 flex items-center justify-between">
-                 <h3 class="font-bold text-foreground text-sm">Editing Card {{ activeCardIndex + 1 }}</h3>
-               </div>
-               
-               <!-- Visual Upload action for this specific card -->
-               <div class="space-y-1.5">
-                  <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Card Media</label>
-                  <div 
-                    @click="triggerUploadCard(activeCardIndex)"
-                    class="w-full h-24 border border-dashed border-border rounded-lg bg-card hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
-                  >
-                     <span v-if="!carouselCards[activeCardIndex].visual" class="text-xs font-bold text-muted-foreground flex items-center gap-2"><IconUpload :size="14" /> Upload Media</span>
-                     <span v-else class="text-xs font-bold text-primary flex items-center gap-2">Replace Image</span>
-                  </div>
-               </div>
-
-               <!-- Card specific copy -->
-               <div class="space-y-1.5">
-                 <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Card Headline</label>
-                 <input v-model="carouselCards[activeCardIndex].headline" type="text" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="Short headline..." />
-               </div>
-               <div class="space-y-1.5">
-                 <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description</label>
-                 <input v-model="carouselCards[activeCardIndex].description" type="text" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow" placeholder="Sub-text..." />
-               </div>
+            <div class="space-y-4 bg-muted/20 p-5 border border-border rounded-xl shadow-sm h-fit">
+              <div class="border-b border-border pb-3 mb-2 flex items-center justify-between">
+                <h3 class="font-bold text-foreground text-sm">Editing Card {{ activeCardIndex + 1 }}</h3>
+              </div>
+              <div class="space-y-1.5">
+                <label :for="`card-media-${activeCardIndex}`" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Card Media</label>
+                <div
+                  :id="`card-media-${activeCardIndex}`"
+                  @click="triggerUploadCard(activeCardIndex)"
+                  class="w-full h-24 border border-dashed border-border rounded-lg bg-card hover:bg-muted/50 cursor-pointer flex items-center justify-center transition-colors"
+                  role="button"
+                  :aria-label="`Upload media for card ${activeCardIndex + 1}`"
+                >
+                  <span v-if="!carouselCards[activeCardIndex].visual" class="text-xs font-bold text-muted-foreground flex items-center gap-2"><IconUpload :size="14" /> Upload Media</span>
+                  <span v-else class="text-xs font-bold text-primary flex items-center gap-2">Replace Image</span>
+                </div>
+              </div>
+              <div class="space-y-1.5">
+                <label :for="`card-headline-${activeCardIndex}`" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Card Headline</label>
+                <input
+                  :id="`card-headline-${activeCardIndex}`"
+                  v-model="carouselCards[activeCardIndex].headline"
+                  type="text"
+                  class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                  placeholder="Short headline..."
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label :for="`card-description-${activeCardIndex}`" class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Description</label>
+                <input
+                  :id="`card-description-${activeCardIndex}`"
+                  v-model="carouselCards[activeCardIndex].description"
+                  type="text"
+                  class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                  placeholder="Sub-text..."
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -622,7 +701,7 @@ async function nextStep() {
               <div class="absolute top-0 left-0 w-1 h-full bg-primary/20"></div>
             <!-- Simulated Facebook Ad Card -->
             <div class="flex items-center gap-2 mb-3">
-              <div class="w-8 h-8 rounded-full bg-muted"></div>
+              <div class="w-8 h-8 rounded-full bg-muted shrink-0"></div>
               <div>
                 <div class="text-[10px] text-muted-foreground">Sponsored</div>
               </div>
@@ -758,7 +837,6 @@ async function nextStep() {
             <IconCheck class="text-green-600 shrink-0 mt-0.5" />
             <p class="text-sm text-green-800 font-medium">No policy violations detected. This ad appears compliant with Meta's advertising standards.</p>
           </div>
-
         </div>
       </div>
     </div>
